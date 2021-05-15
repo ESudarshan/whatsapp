@@ -1,10 +1,15 @@
 package org.esudarshan.whatsapp.model;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import java.time.LocalDate;
 import java.util.UUID;
 
+@Document(collection="MESSAGE")
 public class Message {
 
+    @Id
     private String id;
     private String from;
     private String to;

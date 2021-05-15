@@ -1,10 +1,15 @@
 package org.esudarshan.whatsapp.model;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import java.time.LocalDate;
 import java.util.UUID;
 
+@Document(collection="USER")
 public class User {
 
+    @Id
     String id;
     String name;
     LocalDate registrationDate;

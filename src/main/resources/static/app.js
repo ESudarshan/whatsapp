@@ -69,6 +69,10 @@ function loginAndConnect(user) {
                 }
                 showAck(msg);
             });
+            fetch(serverAddress + '/messages', { method : 'POST',
+                                                       headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                                                       body : JSON.stringify(user)})
+                    .then((response) => response.json())
         });
 }
 

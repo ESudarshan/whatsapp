@@ -2,7 +2,10 @@ package org.esudarshan.whatsapp.controller;
 
 import org.esudarshan.whatsapp.model.Message;
 import org.esudarshan.whatsapp.model.User;
+import org.esudarshan.whatsapp.repository.MessageRepository;
+import org.esudarshan.whatsapp.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -12,13 +15,18 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @CrossOrigin
 @Controller
 public class WhatsappController {
 
-    private Map<String, User> userMap = new HashMap<>();
+    @Autowired
+    MessageRepository messageRepository;
+
+    @Autowired
+    UserRepository userRepository;
 
     @Autowired
     private SimpMessagingTemplate simpMessagingTemplate;
@@ -26,11 +34,12 @@ public class WhatsappController {
     @PostMapping("/signup")
     @ResponseBody
     public User register(@RequestBody User user) {
-        if (userMap.containsKey(user.getName())) {
+        User existingUser = userRepository.findOneByName(user.getName());
+        if (existingUser != null) {
             return null;
         }
         User newUser = new User(user.getName(), LocalDate.now());
-        userMap.put(newUser.getName(), newUser);
+        userRepository.save(newUser);
         simpMessagingTemplate.convertAndSend("/topic/users", newUser);
         return newUser;
     }
@@ -38,8 +47,9 @@ public class WhatsappController {
     @PostMapping("/login")
     @ResponseBody
     public User login(@RequestBody User user) {
-        if (userMap.containsKey(user.getName())) {
-            return userMap.get(user.getName());
+        User existingUser = userRepository.findOneByName(user.getName());
+        if (existingUser != null) {
+            return existingUser;
         }
         return null;
     }
@@ -47,10 +57,13 @@ public class WhatsappController {
     @PostMapping("/send")
     @ResponseBody
     public Message send(@RequestBody Message message) {
-        if (userMap.containsKey(message.getTo())) {
-            simpMessagingTemplate.convertAndSend("/topic/" + userMap.get(message.getTo()).getId() + "/inbox", message);
+        User fromUser = userRepository.findOneByName(message.getFrom());
+        User toUser = userRepository.findOneByName(message.getTo());
+        if (fromUser != null && toUser != null) {
+            simpMessagingTemplate.convertAndSend("/topic/" + toUser.getId() + "/inbox", message);
             message.setStatus("SENT");
-            simpMessagingTemplate.convertAndSend("/topic/" + userMap.get(message.getFrom()).getId() + "/ack", message);
+            messageRepository.save(message);
+            simpMessagingTemplate.convertAndSend("/topic/" + fromUser.getId() + "/ack", message);
             return message;
         }
         return null;
@@ -59,16 +72,30 @@ public class WhatsappController {
     @PostMapping("/ack")
     @ResponseBody
     public void ack(@RequestBody Message message) {
-        if (userMap.containsKey(message.getFrom())) {
+        User existingUser = userRepository.findOneByName(message.getFrom());
+        if (existingUser != null) {
+            messageRepository.delete(message);
             message.setStatus("DELIVERED");
-            simpMessagingTemplate.convertAndSend("/topic/" + userMap.get(message.getFrom()).getId() + "/ack", message);
+            simpMessagingTemplate.convertAndSend("/topic/" + existingUser.getId() + "/ack", message);
         }
     }
 
     @GetMapping("/users")
     @ResponseBody
     public Collection<User> users() {
-        return userMap.values();
+        return userRepository.findAll();
     }
+
+    @PostMapping("/messages")
+    @ResponseBody
+    public void getMessages(@RequestBody User user) {
+        List<Message> messages = messageRepository.findAllByTo(user.getName());
+        if(!messages.isEmpty()) {
+            messages.stream().forEach(msg -> {
+                simpMessagingTemplate.convertAndSend("/topic/" + user.getId() + "/inbox", msg);
+            });
+        }
+    }
+
 
 }
