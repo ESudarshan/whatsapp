@@ -5,18 +5,13 @@ import org.esudarshan.whatsapp.model.User;
 import org.esudarshan.whatsapp.repository.MessageRepository;
 import org.esudarshan.whatsapp.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.repository.MongoRepository;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @CrossOrigin
 @Controller
@@ -90,7 +85,7 @@ public class WhatsappController {
     @ResponseBody
     public void getMessages(@RequestBody User user) {
         List<Message> messages = messageRepository.findAllByTo(user.getName());
-        if(!messages.isEmpty()) {
+        if (!messages.isEmpty()) {
             messages.stream().forEach(msg -> {
                 simpMessagingTemplate.convertAndSend("/topic/" + user.getId() + "/inbox", msg);
             });
