@@ -1,4 +1,5 @@
 var stompClient = null;
+var serverAddress="http://192.168.2.9:8080";
 
 function setConnected(connected) {
     if (connected) {
@@ -18,7 +19,7 @@ function setConnected(connected) {
     $("#conversation").hide();
     $("#interaction").hide();
     $("#chat").html("");
-    fetch('http://192.168.2.8:8080/users').then((response) => {
+    fetch(serverAddress + '/users').then((response) => {
         $("#user").html("");
         response.json().then((users) => {
             showUsers(users);
@@ -45,7 +46,7 @@ function login() {
 }
 
 function loginAndConnect(user) {
-    fetch('http://192.168.2.8:8080/login', { method : 'POST',
+    fetch(serverAddress + '/login', { method : 'POST',
                                            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
                                            body : JSON.stringify({'name': user.name})})
         .then((response) => response.json())
@@ -53,7 +54,20 @@ function loginAndConnect(user) {
             window.localStorage.setItem('user', JSON.stringify(user));
             $("#username").html("Welocme "+ user.name);
             stompClient.subscribe('/topic/'+ JSON.parse(window.localStorage.getItem('user')).id + '/inbox', function (message) {
-                showMessage(JSON.parse(message.body), false);
+                var msg = JSON.parse(message.body);
+                showMessage(msg, false);
+                    fetch(serverAddress + '/ack', { method : 'POST',
+                                                               headers: { 'Content-Type': 'application/json' },
+                                                               body : JSON.stringify(msg)})
+                            .then((response) => response.json());
+
+            });
+            stompClient.subscribe('/topic/'+ JSON.parse(window.localStorage.getItem('user')).id + '/ack', function (message) {
+                var msg = JSON.parse(message.body);
+                if(msg.status === "SENT") {
+                    showMessage(JSON.parse(message.body), true);
+                }
+                showAck(msg);
             });
         });
 }
@@ -78,7 +92,7 @@ function signup() {
 }
 
 function signupAndConnect(user) {
-    fetch('http://192.168.2.8:8080/signup', { method : 'POST',
+    fetch(serverAddress + '/signup', { method : 'POST',
                                             headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
                                             body : JSON.stringify({'name': user.name})})
         .then((response) => response.json())
@@ -86,7 +100,20 @@ function signupAndConnect(user) {
             window.localStorage.setItem('user', JSON.stringify(user));
             $("#username").html("Welocme "+ user.name);
             stompClient.subscribe('/topic/'+ JSON.parse(window.localStorage.getItem('user')).id + '/inbox', function (message) {
-                showMessage(JSON.parse(message.body), false);
+                var msg = JSON.parse(message.body);
+                showMessage(msg, false);
+                    fetch(serverAddress + '/ack', { method : 'POST',
+                                                               headers: { 'Content-Type': 'application/json' },
+                                                               body : JSON.stringify(msg)})
+                            .then((response) => response.json());
+
+            });
+            stompClient.subscribe('/topic/'+ JSON.parse(window.localStorage.getItem('user')).id + '/ack', function (message) {
+                var msg = JSON.parse(message.body);
+                if(msg.status === "SENT") {
+                    showMessage(JSON.parse(message.body), true);
+                }
+                showAck(msg);
             });
         });
 
@@ -107,18 +134,26 @@ function send() {
         return;
     }
     message = JSON.stringify({'message': $("#message").val(), 'from': JSON.parse(window.localStorage.getItem('user')).name, 'to': $("#to").val()});
-    stompClient.send("/app/send", {}, message);
-    showMessage(JSON.parse(message), true);
+    fetch(serverAddress + '/send', { method : 'POST',
+                                               headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                                               body : message})
+            .then((response) => response.json());
 }
 
 function showMessage(message, isSent) {
     if(isSent) {
-        $("#chat").append("<tr><td></td><td></td><td>" + message.message + "</td></tr>");
+        $("#chat").append("<tr><td></td><td></td><td><p id=" + message.id + ">" + message.message + " [" + message.status + "]" + "</p></td></tr>");
     } else {
         $('#'+message.from).click();
         $("#chat").append("<tr><td>" + message.message + "</td><td></td><td></td></tr>");
     }
 }
+
+function showAck(message) {
+    $("#" + message.id).html( message.message + " [" + message.status + "]");
+}
+
+
 
 function showUsers(users) {
    users.forEach(user => showUser(user));

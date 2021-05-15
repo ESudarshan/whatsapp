@@ -41,25 +41,24 @@ public class WhatsappController {
         if (userMap.containsKey(user.getName())) {
             return userMap.get(user.getName());
         }
-        User existingUser = userMap.get(user.getName());
-        if (existingUser != null) {
-            simpMessagingTemplate.convertAndSend("/topic/users", existingUser);
-        }
-        return existingUser;
+        return null;
     }
 
-    @MessageMapping("/send")
-    public void send(@Payload Message message) {
+    @PostMapping("/send")
+    @ResponseBody
+    public Message send(@RequestBody Message message) {
         if (userMap.containsKey(message.getTo())) {
             simpMessagingTemplate.convertAndSend("/topic/" + userMap.get(message.getTo()).getId() + "/inbox", message);
             message.setStatus("SENT");
             simpMessagingTemplate.convertAndSend("/topic/" + userMap.get(message.getFrom()).getId() + "/ack", message);
+            return message;
         }
+        return null;
     }
 
-
-    @MessageMapping("/ack")
-    public void ack(@Payload Message message) {
+    @PostMapping("/ack")
+    @ResponseBody
+    public void ack(@RequestBody Message message) {
         if (userMap.containsKey(message.getFrom())) {
             message.setStatus("DELIVERED");
             simpMessagingTemplate.convertAndSend("/topic/" + userMap.get(message.getFrom()).getId() + "/ack", message);
